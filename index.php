@@ -8,21 +8,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Retrieve the text from the form submission
     $inputText = $_POST['markup_text'] ?? '';
     
-    // Step 1: Remove HTML and PHP tags
+    // Step 1: Remove HTML, PHP, and XML tags
     $outputText = strip_tags($inputText);
     
-    // Step 2: Completely strip out the Markdown symbols (# and *)
-    $markdownSymbols = ['#', '*'];
-    $outputText = str_replace($markdownSymbols, '', $outputText);
+    // Step 2: Completely strip out Markdown symbols and specific punctuation
+    // Note: We put the longest punctuation strings first so smaller ones don't 
+    // trigger a partial replacement too early.
+    $symbolsToRemove = [
+        '#', 
+        '*', 
+        '.,,.', 
+        ',,,', 
+        ',,.', 
+        ',.', 
+        ',,'
+    ];
+    $outputText = str_replace($symbolsToRemove, '', $outputText);
     
-    // Step 3: Clean up the leftover spaces!
-    // Remove spaces at the very beginning of any line (fixes the "### Heading" issue)
+    // Step 3: Clean up the leftover spaces
+    // Remove spaces at the very beginning of any line
     $outputText = preg_replace('/^[ \t]+/m', '', $outputText);
     
-    // Turn any double/multiple spaces into a single space (fixes the "** bold **" issue)
+    // Turn any double/multiple spaces into a single space
     $outputText = preg_replace('/[ \t]+/', ' ', $outputText);
     
-    // Trim any extra empty lines or spaces from the very top and bottom of the text
+    // Trim any extra empty lines or spaces from the very top and bottom
     $outputText = trim($outputText);
 }
 ?>
@@ -31,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markup & Markdown Remover App</title>
+    <title>Text Cleaner App</title>
     <style>
         :root {
             --primary-color: #0056b3;
@@ -86,6 +96,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         button:hover {
             background-color: #004494;
         }
+        /* Style for the copy button */
+        #copy_btn {
+            background-color: #28a745; 
+        }
+        #copy_btn:hover {
+            background-color: #218838;
+        }
+        /* Style for the clear button */
+        #clear_btn {
+            background-color: #6c757d;
+            margin-left: 10px;
+        }
+        #clear_btn:hover {
+            background-color: #5a6268;
+        }
         .output-section {
             margin-top: 30px;
             padding-top: 20px;
@@ -95,28 +120,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: #fafafa;
             border-color: #bbb;
         }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>Text Cleaner App</h1>
-        <p>Paste your text below. This tool will strip out HTML/XML tags, erase Markdown symbols (<strong>#</strong>, <strong>*</strong>), and clean up any leftover weird spacing.</p>
+        <p>Paste your text below. This tool will strip out HTML/XML tags, erase Markdown symbols, remove specific typos (like <strong>.,,.</strong>), and clean up formatting spaces.</p>
 
         <form method="POST" action="">
-            <label for="markup_text">Text with Markup:</label>
-            <textarea name="markup_text" id="markup_text" placeholder="### Paste your **text** here..."><?php echo htmlspecialchars($inputText, ENT_QUOTES, 'UTF-8'); ?></textarea>
+            <label for="markup_text">Text to Clean:</label>
+            <textarea name="markup_text" id="markup_text" placeholder="Paste your text here..."><?php echo htmlspecialchars($inputText, ENT_QUOTES, 'UTF-8'); ?></textarea>
             
-            <button type="submit">Erase Markup</button>
+            <div class="button-group">
+                <button type="submit">Clean Text</button>
+                <button type="button" id="clear_btn" onclick="window.location.href=window.location.pathname;">Clear</button>
+            </div>
         </form>
 
         <?php if ($_SERVER['REQUEST_METHOD'] === 'POST'): ?>
             <div class="output-section">
                 <label for="plain_text">Resulting Plain Text:</label>
                 <textarea id="plain_text" readonly><?php echo htmlspecialchars($outputText, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                
+                <button type="button" id="copy_btn" onclick="copyToClipboard()">Copy Text</button>
             </div>
         <?php endif; ?>
     </div>
 
+    <script>
+        function copyToClipboard() {
+            var copyText = document.getElementById("plain_text");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); // For mobile devices
+
+            navigator.clipboard.writeText(copyText.value).then(function() {
+                var btn = document.getElementById("copy_btn");
+                var originalText = btn.innerText;
+                btn.innerText = "Copied!";
+                
+                setTimeout(function() {
+                    btn.innerText = originalText;
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Could not copy text: ', err);
+                alert("Failed to copy text. Please select and copy manually.");
+            });
+        }
+    </script>
 </body>
 </html>
